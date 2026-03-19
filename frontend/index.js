@@ -1,6 +1,6 @@
 let port = 3000;
 
-const getApiBase = () => `http://localhost:${port}/api/v1/users`;
+const getApiBase = () => `http://localhost:${port}/api/v1/notes`;
 
 document.addEventListener("DOMContentLoaded", () => {
   const inputPort = prompt(
@@ -11,75 +11,85 @@ document.addEventListener("DOMContentLoaded", () => {
     port = inputPort.trim();
   }
 
-  getUser();
+  getNotes();
 });
 
-const formulir = document.querySelector("#user-form");
+const formulir = document.querySelector("#note-form");
+const tombolBatal = document.querySelector("#btn-batal");
+const statusEl = document.querySelector("#status");
 
 formulir.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const elemenName = document.querySelector("#name");
-  const elemenEmail = document.querySelector("#email");
+  const elemenJudul = document.querySelector("#judul");
+  const elemenIsi = document.querySelector("#isi");
 
-  const username = elemenName.value.trim();
-  const email = elemenEmail.value.trim();
-  const id = elemenName.dataset.id || "";
+  const judul = elemenJudul.value.trim();
+  const isi = elemenIsi.value.trim();
+  const id = elemenJudul.dataset.id || "";
 
-  if (!username || !email) return;
+  if (!judul || !isi) return;
 
   try {
     if (id === "") {
-      await axios.post(getApiBase(), { username, email });
+      await axios.post(getApiBase(), { judul, isi });
+      statusEl.textContent = "Catatan berhasil ditambahkan";
     } else {
-      await axios.put(`${getApiBase()}/${id}`, { username, email });
+      await axios.put(`${getApiBase()}/${id}`, { judul, isi });
+      statusEl.textContent = "Catatan berhasil diperbarui";
     }
 
-    elemenName.dataset.id = "";
-    elemenName.value = "";
-    elemenEmail.value = "";
+    resetForm();
 
-    getUser();
+    getNotes();
   } catch (error) {
+    statusEl.textContent = "Terjadi kesalahan saat menyimpan data";
     console.log(error.response?.data || error.message);
   }
 });
 
-async function getUser() {
+tombolBatal.addEventListener("click", () => {
+  resetForm();
+  statusEl.textContent = "Edit dibatalkan";
+});
+
+async function getNotes() {
   try {
     const response = await axios.get(getApiBase());
-    const users = response.data?.data || [];
+    const notes = response.data?.data || [];
 
-    const table = document.querySelector("#table-user");
+    const table = document.querySelector("#table-note");
     let tampilan = "";
     let no = 1;
 
-    for (const user of users) {
-      tampilan += tampilkanUser(no, user);
+    for (const note of notes) {
+      tampilan += tampilkanNote(no, note);
       no++;
     }
 
     table.innerHTML = tampilan;
-    hapusUser();
-    editUser();
+    hapusNote();
+    editNote();
   } catch (error) {
+    statusEl.textContent = "Gagal mengambil data catatan";
     console.log(error.response?.data || error.message);
   }
 }
 
-function tampilkanUser(no, user) {
+function tampilkanNote(no, note) {
   return `
     <tr>
       <td>${no}</td>
-      <td class="name">${user.username ?? "-"}</td>
-      <td class="email">${user.email ?? "-"}</td>
-      <td><button data-id="${user.id}" class="btn-edit" type="button">Edit</button></td>
-      <td><button data-id="${user.id}" class="btn-hapus" type="button">Hapus</button></td>
+      <td class="judul">${note.judul ?? "-"}</td>
+      <td class="isi">${note.isi ?? "-"}</td>
+      <td>${formatTanggal(note.tanggal_dibuat)}</td>
+      <td><button data-id="${note.id}" class="btn-edit" type="button">Edit</button></td>
+      <td><button data-id="${note.id}" class="btn-hapus" type="button">Hapus</button></td>
     </tr>
   `;
 }
 
-function hapusUser() {
+function hapusNote() {
   const tombolHapus = document.querySelectorAll(".btn-hapus");
 
   tombolHapus.forEach((btn) => {
@@ -88,30 +98,53 @@ function hapusUser() {
 
       try {
         await axios.delete(`${getApiBase()}/${id}`);
-        getUser();
+        statusEl.textContent = "Catatan berhasil dihapus";
+        getNotes();
       } catch (error) {
+        statusEl.textContent = "Gagal menghapus catatan";
         console.log(error.response?.data || error.message);
       }
     });
   });
 }
 
-function editUser() {
+function editNote() {
   const tombolEdit = document.querySelectorAll(".btn-edit");
 
   tombolEdit.forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.id;
       const row = btn.closest("tr");
-      const name = row.querySelector(".name").innerText;
-      const email = row.querySelector(".email").innerText;
+      const judul = row.querySelector(".judul").innerText;
+      const isi = row.querySelector(".isi").innerText;
 
-      const elemenName = document.querySelector("#name");
-      const elemenEmail = document.querySelector("#email");
+      const elemenJudul = document.querySelector("#judul");
+      const elemenIsi = document.querySelector("#isi");
 
-      elemenName.dataset.id = id;
-      elemenName.value = name;
-      elemenEmail.value = email;
+      elemenJudul.dataset.id = id;
+      elemenJudul.value = judul;
+      elemenIsi.value = isi;
+      statusEl.textContent = "Mode edit aktif";
     });
+  });
+}
+
+function resetForm() {
+  const elemenJudul = document.querySelector("#judul");
+  const elemenIsi = document.querySelector("#isi");
+
+  elemenJudul.dataset.id = "";
+  elemenJudul.value = "";
+  elemenIsi.value = "";
+}
+
+function formatTanggal(tanggal) {
+  if (!tanggal) return "-";
+
+  const date = new Date(tanggal);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString("id-ID", {
+    timeZone: "Asia/Jakarta",
   });
 }
